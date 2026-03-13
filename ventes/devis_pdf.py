@@ -11,7 +11,7 @@ from reportlab.lib.units import cm
 import qrcode
 
 
-def generer_facture_pdf(facture):
+def generer_devis_pdf(devis):
 
     buffer = BytesIO()
 
@@ -28,19 +28,14 @@ def generer_facture_pdf(facture):
     styles = getSampleStyleSheet()
 
     # ======================
-    # HEADER
+    # QR CODE
     # ======================
 
-#    elements.append(Paragraph("<b>ENTETE DE LA SOCIETE</b>", styles["Title"]))
-# ======================
-# QR CODE
-# ======================
-
     qr_data = f"""
-    Facture: {facture.numero}
-    Client: {facture.client.nom}
-    Date: {facture.date.strftime('%d/%m/%Y')}
-    Total Ttc: {facture.total_ttc}
+    Devis: {devis.numero}
+    Client: {devis.client.nom}
+    Date: {devis.date.strftime('%d/%m/%Y')}
+    Total Ttc: {devis.total_ttc}
     """
 
     qr = qrcode.make(qr_data)
@@ -67,10 +62,6 @@ def generer_facture_pdf(facture):
     elements.append(Spacer(1,20))
     societe_table = Table(societe_info)
 
-    # ======================
-    # TABLE HEADER
-    # ======================
-
     header_table = Table(
         [[societe_table, qr_image]],
         colWidths=[13*cm, 3*cm]
@@ -82,8 +73,10 @@ def generer_facture_pdf(facture):
 
     elements.append(header_table)
     elements.append(Spacer(0,0))
-    elements.append(Paragraph(f"<b>FACTURE N° {facture.numero}</b>", styles["Heading2"]))
-    elements.append(Paragraph(f"Date : {facture.date.strftime('%d/%m/%Y')}", styles["Normal"]))
+
+    elements.append(Paragraph(f"<b>DEVIS N° {devis.numero}</b>", styles["Heading2"]))
+    elements.append(Paragraph(f"Date : {devis.date.strftime('%d/%m/%Y')}", styles["Normal"]))
+
     elements.append(Spacer(1, 20))
 
     # ======================
@@ -91,11 +84,11 @@ def generer_facture_pdf(facture):
     # ======================
 
     client_data = [
-        ["Client", facture.client.nom],
-        ["Matricule Fiscal", facture.mf_client or ""],
-        ["Adresse", facture.adresse_client or ""],
-        ["Téléphone", facture.telephone_client or ""],
-        ["Email", facture.email_client or ""],
+        ["Client", devis.client.nom],
+        ["Matricule Fiscal", devis.mf_client or ""],
+        ["Adresse", devis.adresse_client or ""],
+        ["Téléphone", devis.telephone_client or ""],
+        ["Email", devis.email_client or ""],
     ]
 
     client_table = Table(client_data, colWidths=[5*cm, 13*cm])
@@ -109,10 +102,10 @@ def generer_facture_pdf(facture):
     elements.append(Spacer(1, 25))
 
     # ======================
-    # LIGNES FACTURE
+    # LIGNES DEVIS
     # ======================
 
-    lignes = list(facture.lignes.all())
+    lignes = list(devis.lignes.all())
 
     lignes_par_page = 16
     total_lignes = len(lignes)
@@ -174,7 +167,7 @@ def generer_facture_pdf(facture):
     # TOTAUX
     # ======================
 
-    totaux = facture.calculer_totaux()
+    totaux = devis.calculer_totaux()
 
     total_data = [
         ["Total HT", f"{totaux['total_ht']:.3f} TND"],
@@ -194,15 +187,16 @@ def generer_facture_pdf(facture):
 
     elements.append(total_table)
     elements.append(Spacer(1, 20))
-    
+
     # ======================
-    # CONDITIONS
+    # COMMENTAIRE
     # ======================
+
     comment_data = [
-        ["On ajoute un commentaire telque ; mode de livraison mode de paiement etc ..."],
+        ["Conditions : mode de livraison, mode de paiement, validité du devis..."],
     ]
 
-    comment_table = Table(comment_data, colWidths=[20*cm, 40*cm])
+    comment_table = Table(comment_data, colWidths=[16*cm])
 
     comment_table.setStyle(TableStyle([
         ("GRID", (0, 0), (-1, -1), 0.3, colors.grey),
@@ -223,7 +217,7 @@ def generer_facture_pdf(facture):
     buffer.close()
 
     response = HttpResponse(content_type="application/pdf")
-    response["Content-Disposition"] = f'inline; filename="facture_{facture.numero}.pdf"'
+    response["Content-Disposition"] = f'inline; filename="devis_{devis.numero}.pdf"'
     response.write(pdf)
 
     return response

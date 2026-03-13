@@ -2,6 +2,264 @@ from django.db import models
 from django.utils.timezone import now
 from clients.models import Client
 from produits.models import Produit
+from django.db.models import Max
+
+#------ Devis et Ligne devis
+
+def generer_numero_devis():
+    annee = now().year
+    prefix = f"DEV-{annee}-"
+    dernier = Devis.objects.filter(numero__startswith=prefix).order_by("numero").last()
+
+    if dernier:
+        num = int(dernier.numero.split("-")[-1]) + 1
+    else:
+        num = 1
+
+    return f"{prefix}{num:05d}"
+
+
+class Devis(models.Model):
+
+    STATUTS = (
+        ("brouillon", "Brouillon"),
+        ("envoye", "Envoyé"),
+        ("accepte", "Accepté"),
+        ("refuse", "Refusé"),
+    )
+
+    numero = models.CharField(max_length=30, unique=True, blank=True)
+    client = models.ForeignKey(Client, on_delete=models.PROTECT)
+    statut = models.CharField(max_length=20, choices=STATUTS, default="brouillon")
+    date = models.DateField(auto_now_add=True)
+
+    total_ht = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    total_rem = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    base_tva = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    total_tva = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    total_ttc = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+
+    mf_client = models.CharField(max_length=50, blank=True)
+    adresse_client = models.CharField(max_length=255, blank=True)
+    telephone_client = models.CharField(max_length=20, blank=True)
+    email_client = models.EmailField(blank=True)
+
+    def __str__(self):
+        return self.numero or "Devis"
+
+
+    def calculer_totaux(self):
+
+        total_ht = 0
+        total_rem = 0
+        base_tva = 0
+        total_tva = 0
+        total_ttc = 0
+
+        for ligne in self.lignes.all():
+
+            montant_ht = ligne.quantite * ligne.prix_ht
+            montant_rem = montant_ht * (ligne.taux_rem or 0) / 100
+
+            base = montant_ht - montant_rem
+            tva = base * (ligne.taux_tva or 0) / 100
+
+            total_ht += montant_ht
+            total_rem += montant_rem
+            base_tva += base
+            total_tva += tva
+            total_ttc += base + tva
+
+        return {
+            "total_ht": total_ht,
+            "total_rem": total_rem,
+            "base_tva": base_tva,
+            "total_tva": total_tva,
+            "total_ttc": total_ttc,
+        }
+
+    def total_ttc(self, obj):
+
+        totaux = obj.calculer_totaux()
+
+        if totaux and totaux["total_ttc"] is not None:
+            return f"{totaux['total_ttc']:.3f} TND"
+
+        return "0.000 TND"
+
+    total_ttc.short_description = "Total TTC"
+
+
+class LigneDevis(models.Model):
+
+    devis = models.ForeignKey(
+        Devis,
+        on_delete=models.CASCADE,
+        related_name="lignes"
+    )
+
+    produit = models.ForeignKey(Produit, on_delete=models.PROTECT)
+
+    taux_rem = models.DecimalField(max_digits=4, decimal_places=2, default=0)
+    quantite = models.DecimalField(max_digits=10, decimal_places=2)
+    prix_ht = models.DecimalField(max_digits=10, decimal_places=3)
+    taux_tva = models.DecimalField(max_digits=4, decimal_places=2)
+
+    def montant_ht(self):
+        return self.quantite * self.prix_ht
+
+
+
+
+
+#----------------------------
+
+#--------  Bon de livraison---
+
+def save_model(self, request, obj, form, change):
+
+    if not obj.numero:
+
+        dernier = BonLivraison.objects.aggregate(Max("numero"))
+
+        if dernier["numero__max"]:
+            obj.numero = str(int(dernier["numero__max"]) + 1)
+        else:
+            obj.numero = "1"
+
+    super().save_model(request, obj, form, change)
+
+
+
+
+class BonLivraison(models.Model):
+
+    numero = models.CharField(max_length=20, unique=True)
+    date = models.DateField(auto_now_add=True)
+
+    client = models.ForeignKey("clients.Client", on_delete=models.CASCADE)
+
+    mf_client = models.CharField(max_length=30, blank=True)
+    adresse_client = models.CharField(max_length=200, blank=True)
+    telephone_client = models.CharField(max_length=30, blank=True)
+    email_client = models.CharField(max_length=100, blank=True)
+
+    statut = models.CharField(
+        max_length=20,
+        choices=[
+            ("brouillon","Brouillon"),
+            ("validee","Validée"),
+        ],
+        default="brouillon"
+    )
+
+    total_ht = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    total_rem = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    base_tva = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    total_tva = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    total_ttc = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+
+    def __str__(self):
+        return f"BL {self.numero}"
+
+
+
+    def calculer_totaux(self):
+
+        total_ht = 0
+        total_rem = 0
+        base_tva = 0
+        total_tva = 0
+        total_ttc = 0
+
+        for ligne in self.lignes.all():
+
+            montant_ht = ligne.quantite * ligne.prix_ht
+
+            remise = montant_ht * (ligne.taux_rem or 0) / 100
+
+            base = montant_ht - remise
+
+            tva = base * (ligne.taux_tva or 0) / 100
+
+            ttc = base + tva
+
+            total_ht += montant_ht
+            total_rem += remise
+            base_tva += base
+            total_tva += tva
+            total_ttc += ttc
+
+        return {
+            "total_ht": total_ht,
+            "total_rem": total_rem,
+            "base_tva": base_tva,
+            "total_tva": total_tva,
+            "total_ttc": total_ttc,
+        }
+
+
+#-------- Lignes bon de livraison
+
+class LigneBonLivraison(models.Model):
+
+    bon = models.ForeignKey(
+        BonLivraison,
+        related_name="lignes",
+        on_delete=models.CASCADE
+    )
+
+    produit = models.ForeignKey("produits.Produit", on_delete=models.CASCADE)
+
+    quantite = models.DecimalField(max_digits=10, decimal_places=3)
+    prix_ht = models.DecimalField(max_digits=10, decimal_places=3)
+
+    taux_rem = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    taux_tva = models.DecimalField(max_digits=5, decimal_places=2, default=19)
+
+    def calculer_totaux(self):
+
+        total_ht = 0
+        total_rem = 0
+        base_tva = 0
+        total_tva = 0
+        total_ttc = 0
+
+        for ligne in self.lignes.all():
+
+            montant_ht = ligne.quantite * ligne.prix_ht
+
+            remise = montant_ht * (ligne.taux_rem or 0) / 100
+
+            base = montant_ht - remise
+
+            tva = base * (ligne.taux_tva or 0) / 100
+
+            ttc = base + tva
+
+            total_ht += montant_ht
+            total_rem += remise
+            base_tva += base
+            total_tva += tva
+            total_ttc += ttc
+
+        return {
+            "total_ht": total_ht,
+            "total_rem": total_rem,
+            "base_tva": base_tva,
+            "total_tva": total_tva,
+            "total_ttc": total_ttc,
+        }
+
+
+
+
+
+
+#----------------------------
+
+
+
 
 
 def generer_numero_facture():

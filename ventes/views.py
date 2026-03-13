@@ -6,6 +6,20 @@ from .pdf import generer_facture_pdf
 from .email import envoyer_facture_email
 from .xml_generator import generer_facture_xml
 from django.shortcuts import get_object_or_404
+from .devis_pdf import generer_devis_pdf
+from .models import Devis,BonLivraison
+from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404
+from .models import BonLivraison
+from .bl_pdf import generer_bl_pdf
+
+
+def bl_pdf(request, id):
+
+    bl = get_object_or_404(BonLivraison, id=id)
+
+    return generer_bl_pdf(bl)
+
 
 def facture_xml(request, facture_id):
 
@@ -41,3 +55,11 @@ def produit_info(request, produit_id):
         "prix_ht": float(produit.prix_ht),
         "taux_tva": float(produit.taux_tva),
     })
+
+
+
+def devis_pdf(request, id):
+
+    devis = get_object_or_404(Devis, id=id)
+
+    return generer_devis_pdf(devis)

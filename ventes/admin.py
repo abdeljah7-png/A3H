@@ -2,8 +2,124 @@ from django.contrib import admin, messages
 from django.urls import reverse, path
 from django.utils.html import format_html
 from django.shortcuts import redirect
-from .models import Facture, LigneFacture
 from django.db.models import Max
+from .models import BonLivraison, LigneBonLivraison
+from .models import Facture, LigneFacture, Devis, LigneDevis
+
+
+# ===============================
+# INLINE LIGNES DEVIS
+# ===============================
+# ===============================
+# INLINE LIGNES DEVIS
+# ===============================
+class LigneDevisInline(admin.TabularInline):
+    model = LigneDevis
+    extra = 1
+    fields = (
+        "produit",
+        "quantite",
+        "prix_ht",
+        "taux_rem",
+        "taux_tva",
+    )
+
+
+# ===============================
+# ADMIN DEVIS
+# ===============================
+class DevisAdmin(admin.ModelAdmin):
+
+    inlines = [LigneDevisInline]
+
+    list_display = (
+        "numero",
+        "date",
+        "client",
+        "statut",
+        "afficher_total_ttc",
+        "bouton_pdf",
+    )
+
+    search_fields = (
+        "numero",
+        "client__nom",
+    )
+
+    list_filter = (
+        "statut",
+        "date",
+    )
+
+    exclude = (
+        "total_ht",
+        "total_rem",
+        "base_tva",
+        "total_tva",
+        "total_ttc",
+    )
+
+    readonly_fields = ("numero",)
+
+    # ===============================
+    # NUMERO AUTO
+    # ===============================
+    def save_model(self, request, obj, form, change):
+
+        if not obj.numero:
+
+            dernier = Devis.objects.aggregate(Max("numero"))
+
+            if dernier["numero__max"]:
+                obj.numero = str(int(dernier["numero__max"]) + 1)
+            else:
+                obj.numero = "1"
+
+        super().save_model(request, obj, form, change)
+
+    # ===============================
+    # TOTAL TTC CALCULE
+    # ===============================
+    def afficher_total_ttc(self, obj):
+
+        total = 0
+
+        for ligne in obj.lignes.all():
+
+            montant_ht = ligne.quantite * ligne.prix_ht
+            rem = montant_ht * (ligne.taux_rem or 0) / 100
+            base = montant_ht - rem
+            tva = base * (ligne.taux_tva or 0) / 100
+
+            total += base + tva
+
+        return f"{total:.3f} TND"
+
+    afficher_total_ttc.short_description = "Total TTC"
+
+    # ===============================
+    # BOUTON PDF
+    # ===============================
+    def bouton_pdf(self, obj):
+
+        url = reverse("devis_pdf", args=[obj.id])
+
+        return format_html(
+            '<a class="button" href="{}" target="_blank" '
+            'style="background:#007bff;color:white;padding:4px 8px;border-radius:4px;">'
+            'PDF</a>', url
+        )
+
+    bouton_pdf.short_description = "PDF"
+
+    # ===============================
+    # JS CLIENT AUTO
+    # ===============================
+    class Media:
+        js = ("admin/js/client_auto.js",)
+
+
+admin.site.register(Devis, DevisAdmin)
 
 
 # ===============================
@@ -12,7 +128,7 @@ from django.db.models import Max
 class LigneFactureInline(admin.TabularInline):
     model = LigneFacture
     extra = 1
-    
+
 
 # ===============================
 # ADMIN FACTURE
@@ -72,6 +188,7 @@ class FactureAdmin(admin.ModelAdmin):
             "validee": "green",
             "payee": "blue",
         }
+
         return format_html(
             '<b style="color:{}">{}</b>',
             couleurs.get(obj.statut, "black"),
@@ -81,13 +198,15 @@ class FactureAdmin(admin.ModelAdmin):
     statut_colore.short_description = "Statut"
 
     # ===============================
-    # BOUTONS
+    # BOUTON VALIDER
     # ===============================
     def bouton_valider(self, obj):
+
         if obj.statut == "validee":
             return "✔ Validée"
 
         url = reverse("admin:valider_facture", args=[obj.id])
+
         return format_html(
             '<a class="button" href="{}" '
             'style="background:#28a745;color:white;padding:4px 8px;border-radius:4px;">'
@@ -96,8 +215,13 @@ class FactureAdmin(admin.ModelAdmin):
 
     bouton_valider.short_description = "Valider"
 
+    # ===============================
+    # BOUTON PDF
+    # ===============================
     def bouton_pdf(self, obj):
+
         url = reverse("facture_pdf", args=[obj.id])
+
         return format_html(
             '<a class="button" href="{}" target="_blank" '
             'style="background:#007bff;color:white;padding:4px 8px;border-radius:4px;">'
@@ -106,8 +230,13 @@ class FactureAdmin(admin.ModelAdmin):
 
     bouton_pdf.short_description = "PDF"
 
+    # ===============================
+    # BOUTON XML
+    # ===============================
     def bouton_xml(self, obj):
+
         url = reverse("facture_xml", args=[obj.id])
+
         return format_html(
             '<a class="button" href="{}" target="_blank" '
             'style="background:#6f42c1;color:white;padding:4px 8px;border-radius:4px;">'
@@ -116,8 +245,13 @@ class FactureAdmin(admin.ModelAdmin):
 
     bouton_xml.short_description = "XML"
 
+    # ===============================
+    # BOUTON EMAIL
+    # ===============================
     def bouton_email(self, obj):
+
         url = reverse("envoyer_facture", args=[obj.id])
+
         return format_html(
             '<a class="button" href="{}" '
             'style="background:#fd7e14;color:white;padding:4px 8px;border-radius:4px;">'
@@ -130,7 +264,9 @@ class FactureAdmin(admin.ModelAdmin):
     # URL VALIDATION
     # ===============================
     def get_urls(self):
+
         urls = super().get_urls()
+
         custom = [
             path(
                 "valider/<int:facture_id>/",
@@ -138,12 +274,17 @@ class FactureAdmin(admin.ModelAdmin):
                 name="valider_facture",
             ),
         ]
+
         return custom + urls
 
     def valider_view(self, request, facture_id):
+
         facture = Facture.objects.get(id=facture_id)
+
         facture.valider()
+
         self.message_user(request, "Facture validée ✔", messages.SUCCESS)
+
         return redirect("/admin/ventes/facture/")
 
     class Media:
@@ -155,4 +296,125 @@ class FactureAdmin(admin.ModelAdmin):
 # ===============================
 @admin.register(LigneFacture)
 class LigneFactureAdmin(admin.ModelAdmin):
-    list_display = ("facture", "produit", "taux_rem", "quantite", "prix_ht", "taux_tva")
+
+    list_display = (
+        "facture",
+        "produit",
+        "taux_rem",
+        "quantite",
+        "prix_ht",
+        "taux_tva",
+    )
+
+
+# bon liv.
+
+# ===============================
+# INLINE LIGNES BON LIVRAISON
+# ===============================
+class LigneBonLivraisonInline(admin.TabularInline):
+    model = LigneBonLivraison
+    extra = 1
+    fields = (
+        "produit",
+        "quantite",
+        "prix_ht",
+        "taux_rem",
+        "taux_tva",
+    )
+
+
+# ===============================
+# ADMIN BON LIVRAISON
+# ===============================
+class BonLivraisonAdmin(admin.ModelAdmin):
+
+    inlines = [LigneBonLivraisonInline]
+
+    list_display = (
+        "numero",
+        "date",
+        "client",
+        "statut",
+        "afficher_total_ttc",
+        "bouton_pdf",
+    )
+
+    search_fields = (
+        "numero",
+        "client__nom",
+    )
+
+    list_filter = (
+        "statut",
+        "date",
+    )
+
+    exclude = (
+        "total_ht",
+        "total_rem",
+        "base_tva",
+        "total_tva",
+        "total_ttc",
+    )
+
+    readonly_fields = ("numero",)
+
+    # ===============================
+    # NUMERO AUTO
+    # ===============================
+    def save_model(self, request, obj, form, change):
+
+        if not obj.numero:
+
+            dernier = BonLivraison.objects.aggregate(Max("numero"))
+
+            if dernier["numero__max"]:
+                obj.numero = str(int(dernier["numero__max"]) + 1)
+            else:
+                obj.numero = "1"
+
+        super().save_model(request, obj, form, change)
+
+    # ===============================
+    # TOTAL TTC
+    # ===============================
+    def afficher_total_ttc(self, obj):
+
+        total = 0
+
+        for ligne in obj.lignes.all():
+
+            montant_ht = ligne.quantite * ligne.prix_ht
+            rem = montant_ht * (ligne.taux_rem or 0) / 100
+            base = montant_ht - rem
+            tva = base * (ligne.taux_tva or 0) / 100
+
+            total += base + tva
+
+        return f"{total:.3f} TND"
+
+    afficher_total_ttc.short_description = "Total TTC"
+
+    # ===============================
+    # BOUTON PDF
+    # ===============================
+    def bouton_pdf(self, obj):
+
+        url = reverse("bl_pdf", args=[obj.id])
+
+        return format_html(
+            '<a class="button" href="{}" target="_blank" '
+            'style="background:#007bff;color:white;padding:4px 8px;border-radius:4px;">'
+            'PDF</a>', url
+        )
+
+    bouton_pdf.short_description = "PDF"
+
+    class Media:
+        js = ("admin/js/client_auto.js",)
+
+
+admin.site.register(BonLivraison, BonLivraisonAdmin)
+
+

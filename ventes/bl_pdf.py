@@ -11,7 +11,7 @@ from reportlab.lib.units import cm
 import qrcode
 
 
-def generer_facture_pdf(facture):
+def generer_bl_pdf(bonlivraison):
 
     buffer = BytesIO()
 
@@ -37,10 +37,10 @@ def generer_facture_pdf(facture):
 # ======================
 
     qr_data = f"""
-    Facture: {facture.numero}
-    Client: {facture.client.nom}
-    Date: {facture.date.strftime('%d/%m/%Y')}
-    Total Ttc: {facture.total_ttc}
+    Facture: {bonlivraison.numero}
+    Client: {bonlivraison.client.nom}
+    Date: {bonlivraison.date.strftime('%d/%m/%Y')}
+    Total Ttc: {bonlivraison.total_ttc}
     """
 
     qr = qrcode.make(qr_data)
@@ -73,7 +73,7 @@ def generer_facture_pdf(facture):
 
     header_table = Table(
         [[societe_table, qr_image]],
-        colWidths=[13*cm, 3*cm]
+        colWidths=[13*cm, 8*cm]
     )
 
     header_table.setStyle(TableStyle([
@@ -82,8 +82,8 @@ def generer_facture_pdf(facture):
 
     elements.append(header_table)
     elements.append(Spacer(0,0))
-    elements.append(Paragraph(f"<b>FACTURE N° {facture.numero}</b>", styles["Heading2"]))
-    elements.append(Paragraph(f"Date : {facture.date.strftime('%d/%m/%Y')}", styles["Normal"]))
+    elements.append(Paragraph(f"<b>Bon livraison N° {bonlivraison.numero}</b>", styles["Heading2"]))
+    elements.append(Paragraph(f"Date : {bonlivraison.date.strftime('%d/%m/%Y')}", styles["Normal"]))
     elements.append(Spacer(1, 20))
 
     # ======================
@@ -91,11 +91,11 @@ def generer_facture_pdf(facture):
     # ======================
 
     client_data = [
-        ["Client", facture.client.nom],
-        ["Matricule Fiscal", facture.mf_client or ""],
-        ["Adresse", facture.adresse_client or ""],
-        ["Téléphone", facture.telephone_client or ""],
-        ["Email", facture.email_client or ""],
+        ["Client", bonlivraison.client.nom],
+        ["Matricule Fiscal", bonlivraison.mf_client or ""],
+        ["Adresse", bonlivraison.adresse_client or ""],
+        ["Téléphone", bonlivraison.telephone_client or ""],
+        ["Email", bonlivraison.email_client or ""],
     ]
 
     client_table = Table(client_data, colWidths=[5*cm, 13*cm])
@@ -112,7 +112,7 @@ def generer_facture_pdf(facture):
     # LIGNES FACTURE
     # ======================
 
-    lignes = list(facture.lignes.all())
+    lignes = list(bonlivraison.lignes.all())
 
     lignes_par_page = 16
     total_lignes = len(lignes)
@@ -174,7 +174,7 @@ def generer_facture_pdf(facture):
     # TOTAUX
     # ======================
 
-    totaux = facture.calculer_totaux()
+    totaux = bonlivraison.calculer_totaux()
 
     total_data = [
         ["Total HT", f"{totaux['total_ht']:.3f} TND"],
@@ -223,7 +223,7 @@ def generer_facture_pdf(facture):
     buffer.close()
 
     response = HttpResponse(content_type="application/pdf")
-    response["Content-Disposition"] = f'inline; filename="facture_{facture.numero}.pdf"'
+    response["Content-Disposition"] = f'inline; filename="bonlivraison{bonlivraison.numero}.pdf"'
     response.write(pdf)
 
     return response

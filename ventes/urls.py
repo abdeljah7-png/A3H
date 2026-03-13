@@ -10,4 +10,6 @@ urlpatterns = [
     path("facture/<int:facture_id>/envoyer/", envoyer_facture, name="envoyer_facture"),
     path("produit-info/<int:produit_id>/", views.produit_info, name="produit_info"),
     path("facture/<int:facture_id>/xml/", views.facture_xml, name="facture_xml"),
+    path("devis/<int:id>/pdf/", views.devis_pdf, name="devis_pdf"),
+    path("bl/<int:id>/pdf/", views.bl_pdf, name="bl_pdf"),
 ]
