@@ -73,7 +73,7 @@ def generer_facture_pdf(facture):
 
     header_table = Table(
         [[societe_table, qr_image]],
-        colWidths=[13*cm, 3*cm]
+        colWidths=[16*cm, 4*cm]
     )
 
     header_table.setStyle(TableStyle([

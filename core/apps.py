@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
-
-class CoreConfig(AppConfig):
+class AchatsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'core'
+    verbose_name = "0 - Entreprise"
