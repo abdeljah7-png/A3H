@@ -172,6 +172,8 @@ class FactureAdmin(admin.ModelAdmin):
         "telephone_client",
         "email_client",
     )
+    search_fields = ('numero', 'client__nom')
+
 
     # ===============================
     # TOTAL DYNAMIQUE

@@ -282,7 +282,7 @@ class Facture(models.Model):
         ("validee", "Validée"),
         ("payee", "Payée"),
     )
-
+ 
     numero = models.CharField(max_length=30, unique=True, blank=True)
     client = models.ForeignKey(Client, on_delete=models.PROTECT)
     statut = models.CharField(max_length=20, choices=STATUTS, default="brouillon")
