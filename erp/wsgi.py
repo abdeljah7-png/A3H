@@ -1,33 +1,19 @@
 import os
 import django
 from django.core.wsgi import get_wsgi_application
+from django.contrib.auth import get_user_model
 
-# -------------------------------
-# Définir le module settings
-# -------------------------------
+# Configuration Django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "erp.settings")
-
-# -------------------------------
-# Initialiser Django
-# -------------------------------
 django.setup()
 
-# -------------------------------
-# Création automatique du superuser
-# -------------------------------
-if os.environ.get("CREATE_SUPERUSER", "False") == "True":
-    from django.contrib.auth import get_user_model
+# Création automatique du superuser si inexistant
+User = get_user_model()
+if not User.objects.filter(username=os.environ.get("DJANGO_SUPERUSER_USERNAME", "admin")).exists():
+    User.objects.create_superuser(
+        username=os.environ.get("DJANGO_SUPERUSER_USERNAME", "admin"),
+        email=os.environ.get("DJANGO_SUPERUSER_EMAIL", "admin@example.com"),
+        password=os.environ.get("DJANGO_SUPERUSER_PASSWORD", "admin123")
+    )
 
-    User = get_user_model()
-    username = os.environ.get("DJANGO_SUPERUSER_USERNAME", "admin")
-    email = os.environ.get("DJANGO_SUPERUSER_EMAIL", "admin@example.com")
-    password = os.environ.get("DJANGO_SUPERUSER_PASSWORD", "admin123")
-
-    if not User.objects.filter(username=username).exists():
-        User.objects.create_superuser(username=username, email=email, password=password)
-        print(f"✅ Superuser '{username}' créé automatiquement")
-
-# -------------------------------
-# WSGI application
-# -------------------------------
 application = get_wsgi_application()
