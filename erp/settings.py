@@ -23,8 +23,8 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY') # utiliser variable d'environne
 
 DEBUG = False  # ⚠️ Toujours False en production
 
-ALLOWED_HOSTS = ['fattah.pythonanywhere.com']
-ALLOWED_HOSTS = ['fattah.pythonanywhere.com', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['*']
+
 # ----------------------
 # APPLICATIONS
 # ----------------------
