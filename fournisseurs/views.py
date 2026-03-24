@@ -1,6 +1,7 @@
 from django.http import JsonResponse
 from .models import Fournisseur
 
+
 def fournisseur_info(request, Fournisseur_id):
     fournisseur = Fournisseur.objects.get(id=Fournisseur_id)
 
@@ -10,3 +11,6 @@ def fournisseur_info(request, Fournisseur_id):
         "telephone": Fournisseur.telephone,
         "email": Fournisseur.email,
     })
+
+
+    #------------- Releve fournisseur

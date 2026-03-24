@@ -120,9 +120,9 @@ class DevisAdmin(admin.ModelAdmin):
     # ===============================
     # JS CLIENT AUTO
     # ===============================
+
     class Media:
         js = ("admin/js/client_auto.js",)
-
 
 admin.site.register(Devis, DevisAdmin)
 
@@ -310,94 +310,62 @@ class LigneFactureAdmin(admin.ModelAdmin):
     )
 
 
-# bon liv.
-
 # ===============================
 # INLINE LIGNES BON LIVRAISON
 # ===============================
 class LigneBonLivraisonInline(admin.TabularInline):
     model = LigneBonLivraison
     extra = 1
-    fields = (
-        "produit",
-        "quantite",
-        "prix_ht",
-        "taux_rem",
-        "taux_tva",
-    )
 
 
 # ===============================
 # ADMIN BON LIVRAISON
 # ===============================
+@admin.register(BonLivraison)
 class BonLivraisonAdmin(admin.ModelAdmin):
 
     inlines = [LigneBonLivraisonInline]
 
     list_display = (
         "numero",
-        "date",
         "client",
-        "statut",
-        "afficher_total_ttc",
+        "date",
+        "total_ttc",
         "bouton_pdf",
     )
 
-    search_fields = (
+    fields = (
         "numero",
-        "client__nom",
-    )
-
-    list_filter = (
+        "client",
+        "mf_client",
+        "adresse_client",
+        "telephone_client",
+        "email_client",
         "statut",
-        "date",
     )
 
-    exclude = (
-        "total_ht",
-        "total_rem",
-        "base_tva",
-        "total_tva",
-        "total_ttc",
+    readonly_fields = (
+        "numero",
+        "mf_client",
+        "adresse_client",
+        "telephone_client",
+        "email_client",
     )
 
-    readonly_fields = ("numero",)
+    # ===============================
+    # TOTAL DYNAMIQUE
+    # ===============================
+    def total_ttc(self, obj):
+        totaux = obj.calculer_totaux()
+        if totaux and totaux["total_ttc"] is not None:
+            return f"{totaux['total_ttc']:.3f} TND"
+        return "0.000 TND"
+
+    total_ttc.short_description = "Total TTC"
 
     # ===============================
-    # NUMERO AUTO
+    # STATUT COULEUR
     # ===============================
-    def save_model(self, request, obj, form, change):
-
-        if not obj.numero:
-
-            dernier = BonLivraison.objects.aggregate(Max("numero"))
-
-            if dernier["numero__max"]:
-                obj.numero = str(int(dernier["numero__max"]) + 1)
-            else:
-                obj.numero = "1"
-
-        super().save_model(request, obj, form, change)
-
-    # ===============================
-    # TOTAL TTC
-    # ===============================
-    def afficher_total_ttc(self, obj):
-
-        total = 0
-
-        for ligne in obj.lignes.all():
-
-            montant_ht = ligne.quantite * ligne.prix_ht
-            rem = montant_ht * (ligne.taux_rem or 0) / 100
-            base = montant_ht - rem
-            tva = base * (ligne.taux_tva or 0) / 100
-
-            total += base + tva
-
-        return f"{total:.3f} TND"
-
-    afficher_total_ttc.short_description = "Total TTC"
 
     # ===============================
     # BOUTON PDF
@@ -414,10 +382,44 @@ class BonLivraisonAdmin(admin.ModelAdmin):
 
     bouton_pdf.short_description = "PDF"
 
-    class Media:
-        js = ("admin/js/client_auto.js",)
+    # ===============================
+    # URL VALIDATION
+    # ===============================
+    def get_urls(self):
+
+        urls = super().get_urls()
+
+        custom = [
+            path(
+                "valider/<int:bon_id>/",
+                self.admin_site.admin_view(self.valider_view),
+                name="valider_bonlivraison",
+            ),
+        ]
+
+        return custom + urls
+
+    def valider_view(self, request, bon_id):
+
+        bon = BonLivraison.objects.get(id=bon_id)
+
+        bon.valider()
+
+        self.message_user(request, "Bon de livraison validé ✔", messages.SUCCESS)
+
+        return redirect("/admin/ventes/bonlivraison/")
 
 
-admin.site.register(BonLivraison, BonLivraisonAdmin)
+# ===============================
+# ADMIN LIGNE BON LIVRAISON
+# ===============================
+@admin.register(LigneBonLivraison)
+class LigneBonLivraisonAdmin(admin.ModelAdmin):
 
-
+    list_display = (
+        "produit",
+        "taux_rem",
+        "quantite",
+        "prix_ht",
+        "taux_tva",
+    )

@@ -113,23 +113,20 @@ class LigneDevis(models.Model):
 
 
 #----------------------------
+from django.db import models
+from django.utils.timezone import now
 
-#--------  Bon de livraison---
+def generer_numero_bonlivraison():
+    annee = now().year
+    prefix = f"BON.N°-{annee}-"
+    derniere = BonLivraison.objects.filter(numero__startswith=prefix).order_by("numero").last()
 
-def save_model(self, request, obj, form, change):
+    if derniere:
+        num = int(derniere.numero.split("-")[-1]) + 1
+    else:
+        num = 1
 
-    if not obj.numero:
-
-        dernier = BonLivraison.objects.aggregate(Max("numero"))
-
-        if dernier["numero__max"]:
-            obj.numero = str(int(dernier["numero__max"]) + 1)
-        else:
-            obj.numero = "1"
-
-    super().save_model(request, obj, form, change)
-
-
+    return f"{prefix}{num:05d}"
 
 
 class BonLivraison(models.Model):
@@ -162,10 +159,7 @@ class BonLivraison(models.Model):
     def __str__(self):
         return f"BL {self.numero}"
 
-
-
     def calculer_totaux(self):
-
         total_ht = 0
         total_rem = 0
         base_tva = 0
@@ -173,15 +167,10 @@ class BonLivraison(models.Model):
         total_ttc = 0
 
         for ligne in self.lignes.all():
-
             montant_ht = ligne.quantite * ligne.prix_ht
-
             remise = montant_ht * (ligne.taux_rem or 0) / 100
-
             base = montant_ht - remise
-
             tva = base * (ligne.taux_tva or 0) / 100
-
             ttc = base + tva
 
             total_ht += montant_ht
@@ -189,6 +178,13 @@ class BonLivraison(models.Model):
             base_tva += base
             total_tva += tva
             total_ttc += ttc
+
+        # MAJ automatique des champs
+        self.total_ht = total_ht
+        self.total_rem = total_rem
+        self.base_tva = base_tva
+        self.total_tva = total_tva
+        self.total_ttc = total_ttc
 
         return {
             "total_ht": total_ht,
@@ -198,60 +194,54 @@ class BonLivraison(models.Model):
             "total_ttc": total_ttc,
         }
 
+    def save(self, *args, **kwargs):
+        # Mise à jour infos client
+        if self.client:
+            self.mf_client = self.client.matricule_fiscal
+            self.adresse_client = self.client.adresse
+            self.telephone_client = self.client.telephone
+            self.email_client = self.client.email
+
+        # Génération numéro si vide
+        if not self.numero:
+            self.numero = generer_numero_bonlivraison()
+
+        super().save(*args, **kwargs)
+
+        # recalcul total après sauvegarde (pour nouvelles lignes)
+        self.calculer_totaux()
+        super().save(update_fields=["total_ht", "total_rem", "base_tva", "total_tva", "total_ttc"])
+
 
 #-------- Lignes bon de livraison
-
 class LigneBonLivraison(models.Model):
 
-    bon = models.ForeignKey(
+    bon_livraison = models.ForeignKey(
         BonLivraison,
         related_name="lignes",
         on_delete=models.CASCADE
     )
 
     produit = models.ForeignKey("produits.Produit", on_delete=models.CASCADE)
-
     quantite = models.DecimalField(max_digits=10, decimal_places=3)
     prix_ht = models.DecimalField(max_digits=10, decimal_places=3)
-
     taux_rem = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     taux_tva = models.DecimalField(max_digits=5, decimal_places=2, default=19)
 
-    def calculer_totaux(self):
+    def montant_ht(self):
+        return self.quantite * self.prix_ht
 
-        total_ht = 0
-        total_rem = 0
-        base_tva = 0
-        total_tva = 0
-        total_ttc = 0
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # recalcul automatique du bon après modification de la ligne
+        self.bon_livraison.calculer_totaux()
+        self.bon_livraison.save(update_fields=["total_ht", "total_rem", "base_tva", "total_tva", "total_ttc"])
 
-        for ligne in self.lignes.all():
-
-            montant_ht = ligne.quantite * ligne.prix_ht
-
-            remise = montant_ht * (ligne.taux_rem or 0) / 100
-
-            base = montant_ht - remise
-
-            tva = base * (ligne.taux_tva or 0) / 100
-
-            ttc = base + tva
-
-            total_ht += montant_ht
-            total_rem += remise
-            base_tva += base
-            total_tva += tva
-            total_ttc += ttc
-
-        return {
-            "total_ht": total_ht,
-            "total_rem": total_rem,
-            "base_tva": base_tva,
-            "total_tva": total_tva,
-            "total_ttc": total_ttc,
-        }
-
-
+    def delete(self, *args, **kwargs):
+        bon = self.bon_livraison
+        super().delete(*args, **kwargs)
+        bon.calculer_totaux()
+        bon.save(update_fields=["total_ht", "total_rem", "base_tva", "total_tva", "total_ttc"])
 
 
 

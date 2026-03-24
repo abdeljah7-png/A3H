@@ -1,59 +1,65 @@
+<!-- templates/comptes/releve_compte.html -->
 
-<form method="get">
+<form method="get" style="margin-bottom:20px;">
+    <label>Date début</label>
+    <input type="date" name="date_debut" value="{{ date_debut }}">
 
-Date début
-<input type="date" name="date_debut" value="{{ date_debut }}">
+    <label>Date fin</label>
+    <input type="date" name="date_fin" value="{{ date_fin }}">
 
-Date fin
-<input type="date" name="date_fin" value="{{ date_fin }}">
-
-<button type="submit">Afficher</button>
+    <button type="submit">Afficher</button>
+</form>
 
 <h2>{{ societe.nom }}</h2>
 <p>{{ societe.adresse }}</p>
 <hr>
 
-
 <h3>Relevé du compte : {{ compte }}</h3>
 
-<p><b>Report :</b> {{ report }}</p>
+<p><b>Report initial :</b> {{ report }}</p>
 
+<!-- Bouton PDF avec dates incluses -->
+<div style="margin:20px 0; text-align:right;">
+    <a href="{% url 'releve_compte_pdf' compte.id %}?date_debut={{ date_debut|default:'' }}&date_fin={{ date_fin|default:'' }}"
+       target="_blank"
+       style="
+            background: #28a745;
+            color: white;
+            padding: 10px 18px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: bold;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+       ">
+        📄 Télécharger PDF
+    </a>
+</div>
 
-
-<table border="1" width="100%">
-
-<tr>
-<th>Date</th>
-<th>Libellé</th>
-<th>Débit</th>
-<th>Crédit</th>
-<th>Solde</th>
-</tr>
-
-{% for l in lignes %}
-
-<tr>
-<td>{{ l.date }}</td>
-<td>{{ l.libelle }}</td>
-<td>{{ l.debit }}</td>
-<td>{{ l.credit }}</td>
-<td>{{ l.solde }}</td>
-</tr>
-
-{% endfor %}
-
-<tr>
-<td colspan="2"><b>Total</b></td>
-<td>{{ total_debit }}</td>
-<td>{{ total_credit }}</td>
-<td><b>{{ solde }}</b></td>
-</tr>
-
+<table border="1" width="100%" cellpadding="5" cellspacing="0" style="border-collapse:collapse;">
+    <thead>
+        <tr style="background:#f2f2f2;">
+            <th>Date</th>
+            <th>Libellé</th>
+            <th>Débit</th>
+            <th>Crédit</th>
+            <th>Solde</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for l in lignes %}
+        <tr>
+            <td>{{ l.date|date:"d/m/Y" }}</td>
+            <td>{{ l.libelle }}</td>
+            <td>{{ l.debit }}</td>
+            <td>{{ l.credit }}</td>
+            <td>{{ l.solde }}</td>
+        </tr>
+        {% endfor %}
+        <tr style="font-weight:bold;">
+            <td colspan="2">Totaux</td>
+            <td>{{ total_debit }}</td>
+            <td>{{ total_credit }}</td>
+            <td>{{ solde }}</td>
+        </tr>
+    </tbody>
 </table>
-
-
-</form>
-<tr  colspan="2"> clique ici</tr>
-<a href="{% url 'releve_compte_pdf' compte.id %}" target="_blank">
-Imprimer PDF
-</a>

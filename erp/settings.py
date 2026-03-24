@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
- ----------------------
+ 
 # BASE DIRECTORY
 # ----------------------
 BASE_DIR = Path(__file__).resolve().parent.parent

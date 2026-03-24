@@ -31,5 +31,4 @@ urlpatterns = [
     path("achats/", include("achats.urls")),
     path('reglements/', include('reglements.urls')),
     path("comptes/", include("comptes.urls")),
-
 ]

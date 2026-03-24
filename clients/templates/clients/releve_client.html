@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Relevé Client</title>
+    <style>
+        body {
+            font-family: Arial;
+            margin: 20px;
+        }
+        h2 {
+            text-align: left;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .debit {
+            color: red;
+            text-align: right;
+        }
+        .credit {
+            color: green;
+            text-align: right;
+        }
+        .solde {
+            font-weight: bold;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Relevé Client</h2>
+
+<p><strong>Client :</strong> {{ client.nom }}</p>
+<p><strong>Date :</strong> {{ now|date:"d/m/Y" }}</p>
+
+<table>
+    <tr>
+        <th>Date</th>
+        <th>Libellé</th>
+        <th>Débit</th>
+        <th>Crédit</th>
+        <th>Solde</th>
+    </tr>
+
+    {% for m in lignes %}
+    <tr>
+        <td>{{ m.date }}</td>
+        <td>{{ m.libelle }}</td>
+        <td class="debit">{{ m.debit }}</td>
+        <td class="credit">{{ m.credit }}</td>
+        <td class="solde">{{ m.solde }}</td>
+    </tr>
+    {% empty %}
+    <tr>
+        <td colspan="5">Aucun mouvement</td>
+    </tr>
+    {% endfor %}
+</table>
+
+<h3 style="text-align:left;">
+    Solde final : {{ solde }}
+</h3>
+
+</body>
+</html>

@@ -1,7 +1,6 @@
 from django.urls import path
-from .views import client_info,releve_client
+from .views import client_info
 
 urlpatterns = [
     path("client-info/<int:client_id>/", client_info, name="client_info"),
-    path('releve/<int:client_id>/', releve_client, name='releve_client'),
 ]
