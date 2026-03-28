@@ -161,7 +161,7 @@ def releve_compte_pdf(request, compte_id):
     # Totaux
     data.append(["Totaux", "", f"{total_debit:.3f}", f"{total_credit:.3f}", f"{solde:.3f}"])
 
-    table = Table(data, colWidths=[3*cm, 6*cm, 3*cm, 3*cm, 3*cm])
+    table = Table(data, colWidths=[3*cm, 6*cm, 3*cm, 3*cm, 3*cm])    
     table.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
         ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
@@ -175,6 +175,9 @@ def releve_compte_pdf(request, compte_id):
     w, h = table.wrapOn(p, width-4*cm, y)
     table.drawOn(p, 2*cm, y-h)
 
+    
+    
     p.showPage()
     p.save()
+
     return response

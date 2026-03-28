@@ -132,7 +132,7 @@ def generer_numero_bonlivraison():
 class BonLivraison(models.Model):
 
     numero = models.CharField(max_length=20, unique=True)
-    date = models.DateField(auto_now_add=True)
+    date = models.DateField(default=now)
 
     client = models.ForeignKey("clients.Client", on_delete=models.CASCADE)
 
@@ -140,7 +140,12 @@ class BonLivraison(models.Model):
     adresse_client = models.CharField(max_length=200, blank=True)
     telephone_client = models.CharField(max_length=30, blank=True)
     email_client = models.CharField(max_length=100, blank=True)
-
+    facture = models.ForeignKey(
+        "Facture",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
     statut = models.CharField(
         max_length=20,
         choices=[

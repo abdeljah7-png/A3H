@@ -169,6 +169,62 @@ class BonReception(models.Model):
     def __str__(self):
         return f"BR {self.numero}"
 
+    def calculer_totaux(self):
+        total_ht = 0
+        total_rem = 0
+        base_tva = 0
+        total_tva = 0
+        total_ttc = 0
+
+        for ligne in self.lignes.all():
+            montant_ht = ligne.quantite * ligne.prix_ht
+            remise = montant_ht * (ligne.taux_rem or 0) / 100
+            base = montant_ht - remise
+            tva = base * (ligne.taux_tva or 0) / 100
+            ttc = base + tva
+
+            total_ht += montant_ht
+            total_rem += remise
+            base_tva += base
+            total_tva += tva
+            total_ttc += ttc
+
+        # MAJ automatique des champs
+        self.total_ht = total_ht
+        self.total_rem = total_rem
+        self.base_tva = base_tva
+        self.total_tva = total_tva
+        self.total_ttc = total_ttc
+
+        return {
+            "total_ht": total_ht,
+            "total_rem": total_rem,
+            "base_tva": base_tva,
+            "total_tva": total_tva,
+            "total_ttc": total_ttc,
+        }
+
+    def save(self, *args, **kwargs):
+        # Mise à jour infos client
+        if self.client:
+            self.mf_client = self.client.matricule_fiscal
+            self.adresse_client = self.client.adresse
+            self.telephone_client = self.client.telephone
+            self.email_client = self.client.email
+
+        # Génération numéro si vide
+        if not self.numero:
+            self.numero = generer_numero_bonlivraison()
+
+        super().save(*args, **kwargs)
+
+        # recalcul total après sauvegarde (pour nouvelles lignes)
+        self.calculer_totaux()
+        super().save(update_fields=["total_ht", "total_rem", "base_tva", "total_tva", "total_ttc"])
+
+
+
+
     def save(self, *args, **kwargs):
 
         if not self.numero:
@@ -185,24 +241,33 @@ class BonReception(models.Model):
 
 class LigneBonReception(models.Model):
 
-    bon = models.ForeignKey(
+    bon_reception = models.ForeignKey(
         BonReception,
         related_name="lignes",
         on_delete=models.CASCADE
     )
 
-    produit = models.ForeignKey(
-        Produit,
-        on_delete=models.PROTECT
-    )
-
+    produit = models.ForeignKey("produits.Produit", on_delete=models.CASCADE)
     quantite = models.DecimalField(max_digits=10, decimal_places=3)
-
-    prix_ht = models.DecimalField("Prix Achat", max_digits=10, decimal_places=3)
-
+    prix_ht = models.DecimalField(max_digits=10, decimal_places=3)
     taux_rem = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-
     taux_tva = models.DecimalField(max_digits=5, decimal_places=2, default=19)
+
+    def montant_ht(self):
+        return self.quantite * self.prix_ht
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # recalcul automatique du bon après modification de la ligne
+        self.bon_reception.calculer_totaux()
+        self.bon_reception.save(update_fields=["total_ht", "total_rem", "base_tva", "total_tva", "total_ttc"])
+
+    def delete(self, *args, **kwargs):
+        bon = self.bon_reception
+        super().delete(*args, **kwargs)
+        bon.calculer_totaux()
+        bon.save(update_fields=["total_ht", "total_rem", "base_tva", "total_tva", "total_ttc"])
+
 
 
 # =====================================================

@@ -1,0 +1,17 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+<h1>Dashboard ERP</h1>
+
+<nav style="margin:20px 0;">
+
+    <a href="{% url 'facturation_globale' %}">Facturation Globale</a>
+    <a href="/editions/ca-bons/" style="margin-right:15px;">CA / Bons Livraison</a>
+    <a href="/editions/ca-factures/" style="margin-right:15px;">CA / Factures</a>
+    <a href="/editions/achats/" style="margin-right:15px;">Achats Périodiques</a>
+    <a href="/editions/ventes-mois/" style="margin-right:15px;">Ventes / Mois</a>
+    <a href="/editions/ventes-an/" style="margin-right:15px;">Ventes / Année</a>
+</nav>
+
+{% endblock %}
